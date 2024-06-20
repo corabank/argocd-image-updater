@@ -1,0 +1,39 @@
+labels:
+  platform: linux/amd64
+
+variables:
+  - &version '0.13.1-cora'
+
+steps:
+  # Gerar imagem do servidor do argocd-image-updater
+  build-server:
+    image: img.cora.tools/base/woodpecker-buildx:3.2.0
+    secrets:
+      - docker_username
+      - docker_password
+    privileged: true
+    settings:
+      repo: img.cora.tools/public/argocd-image-updater
+      registry: img.cora.tools
+      dockerfile: Dockerfile
+      context: .
+      tags:
+        - *version
+        - latest
+
+    backend_options:
+      kubernetes:
+        securityContext:
+          privileged: true
+        serviceAccountName: "cora-woodpecker-sa"
+        nodeSelector:
+          cloud.google.com/gke-nodepool: secondary-preenmptive-node-pool
+        tolerations:
+          - key: "cora"
+            value: "spot"
+            operator: "Equal"
+            effect: "NoSchedule"
+
+when:
+  - event: push
+    branch: master
