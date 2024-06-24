@@ -6,7 +6,7 @@ variables:
 
 steps:
   # Gerar imagem do servidor do argocd-image-updater
-  build-server:
+  build-image:
     image: img.cora.tools/base/woodpecker-buildx:3.2.0
     secrets:
       - docker_username
