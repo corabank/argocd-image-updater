@@ -492,6 +492,73 @@ func marshalParamsOverride(app *v1alpha1.Application, originalData []byte) ([]by
 			mergeHelmOverride(&params, &newParams)
 			override, err = yaml.Marshal(params)
 		}
+	case ApplicationTypePlugin:
+		if appSource.Plugin == nil {
+			return []byte{}, nil
+		}
+
+		if strings.HasPrefix(app.Annotations[common.WriteBackTargetAnnotation], common.HelmPrefix) {
+			images := GetImagesAndAliasesFromApplication(app)
+
+			for _, c := range images {
+
+				if c.ImageAlias == "" {
+					continue
+				}
+
+				helmAnnotationParamName, helmAnnotationParamVersion := getHelmParamNamesFromAnnotation(app.Annotations, c)
+
+				if helmAnnotationParamName == "" {
+					return nil, fmt.Errorf("could not find an image-name annotation for image %s", c.ImageName)
+				}
+				if helmAnnotationParamVersion == "" {
+					return nil, fmt.Errorf("could not find an image-tag annotation for image %s", c.ImageName)
+				}
+
+				helmParamName := getHelmParam(appSource.Helm.Parameters, helmAnnotationParamName)
+				if helmParamName == nil {
+					return nil, fmt.Errorf("%s parameter not found", helmAnnotationParamName)
+				}
+
+				helmParamVersion := getHelmParam(appSource.Helm.Parameters, helmAnnotationParamVersion)
+				if helmParamVersion == nil {
+					return nil, fmt.Errorf("%s parameter not found", helmAnnotationParamVersion)
+				}
+
+				// Build string with YAML format to merge with originalData values
+				helmValues := fmt.Sprintf("%s: %s\n%s: %s", helmAnnotationParamName, helmParamName.Value, helmAnnotationParamVersion, helmParamVersion.Value)
+
+				var mergedParams *conflate.Conflate
+				mergedParams, err = conflate.FromData(originalData, []byte(helmValues))
+				if err != nil {
+					return nil, err
+				}
+
+				override, err = mergedParams.MarshalYAML()
+			}
+		} else {
+			var params helmOverride
+			newParams := helmOverride{
+				Helm: helmParameters{
+					Parameters: appSource.Helm.Parameters,
+				},
+			}
+
+			outputParams := appSource.Helm.ValuesYAML()
+			log.WithContext().AddField("application", app).Debugf("values: '%s'", outputParams)
+
+			if len(originalData) == 0 {
+				override, err = yaml.Marshal(newParams)
+				break
+			}
+			err = yaml.Unmarshal(originalData, &params)
+			if err != nil {
+				override, err = yaml.Marshal(newParams)
+				break
+			}
+			mergeHelmOverride(&params, &newParams)
+			override, err = yaml.Marshal(params)
+		}
 	default:
 		err = fmt.Errorf("unsupported application type")
 	}

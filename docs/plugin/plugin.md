@@ -9,7 +9,7 @@ Integration with argocd-vault-plugin: The HELM_ARGS env variable is primarily us
 ## Example of my use case:
 
 ```yaml
-Annotations:
+annotations:
     argocd-image-updater.argoproj.io/image-list: php=registry.myapp.cloud/myapp/php:dev, nginx=registry.myapp.cloud/myapp/nginx:dev
     argocd-image-updater.argoproj.io/php.helm.image-tag: php.image.tag
     argocd-image-updater.argoproj.io/nginx.helm.image-tag: nginx.image.tag
